@@ -64,24 +64,36 @@ The checker expects `customers.csv` in the current working directory and require
 
 ## Clean and review data
 
-To normalize the data while preserving all records, run:
+The cleaning script reads a CSV with `name`, `email`, and `phone` columns. It keeps every row, trims whitespace in text columns, converts blank text to missing values, and lowercases email addresses. It does not guess at corrections or delete records.
+
+### Try it with the sample data
+
+Generate sample data first if you do not already have `customers.csv`:
 
 ```bash
+python make_data.py
+python check_data.py
 python clean_data.py
 ```
 
-The script reads `customers.csv` and writes two new files:
+The script reads `customers.csv` and writes two files:
 
-- `customers_cleaned.csv` — all rows, with surrounding whitespace trimmed, blank text converted to missing values, and email addresses lowercased. Other columns are preserved.
-- `customers_review.csv` — only rows needing attention, with a `source_row` number and `quality_issues` field identifying invalid emails, missing phones, and duplicate valid emails.
+- `customers_cleaned.csv` - every input row, with other columns preserved.
+- `customers_review.csv` - rows needing attention, with a `source_row` number and `quality_issues` field identifying invalid emails, missing phones, and duplicate valid emails.
 
-The input file is never overwritten, and flagged rows are not removed from the cleaned output. Review the flagged records and make judgment calls manually.
+The input file is never overwritten. Flagged rows remain in the cleaned output; review `customers_review.csv` and decide how to address those records yourself.
 
-You can choose different paths:
+### Clean your own data
+
+You can either copy your CSV to the project folder and name it `customers.csv`, or pass its path directly. For example:
 
 ```bash
-python clean_data.py --input my_customers.csv --output normalized.csv --review-output review.csv
+python clean_data.py --input path/to/my_customers.csv --output path/to/normalized.csv --review-output path/to/review.csv
 ```
+
+On Windows, use Windows-style paths, for example `python clean_data.py --input "C:\Data\my_customers.csv" --output "C:\Data\normalized.csv" --review-output "C:\Data\review.csv"`.
+
+Do not run `python make_data.py` when `customers.csv` contains your own data: it replaces that file with generated sample data. Keep a backup of important input data.
 
 ## Run tests
 
