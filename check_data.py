@@ -1,17 +1,30 @@
-import pandas as pd
+from data_validator import build_quality_report, inspect_customers, load_customers
 
-df = pd.read_csv("customers.csv")
-#print(df.head())
-#print(df.shape)
-#print(df.dtypes) 
 
-phone = pd.Series(df["phone"])
-#print(df[df["phone"].isna()]) # prints only rows with NaN values in the phone column
+def main() -> int:
+    try:
+        df = load_customers("customers.csv")
+    except FileNotFoundError:
+        print("customers.csv not found. Run python make_data.py first.")
+        return 1
 
-valid_emails = df["email"].str.contains("@") #prints a boolean series indicating whether each email address is valid (contains "@")   
-invalid_emails = df[~df["email"].str.contains("@")]  # prints only rows with invalid email addresses
-#print(invalid_emails)
+    report = build_quality_report(df)
+    details = inspect_customers("customers.csv")
 
-combined = pd.concat([invalid_emails, df[df["phone"].isna()]], ignore_index=True) # combines the invalid email and missing phone records into a single DataFrame
-print(combined) # prints the combined DataFrame
-print(f"Number of rows with invalid emails or missing phone numbers: {len(combined)}")
+    print("Data quality report")
+    for key, value in report.items():
+        print(f"- {key}: {value}")
+
+    print("\nInvalid email rows:")
+    print(details["invalid_emails"])
+
+    print("\nMissing phone rows:")
+    print(details["missing_phones"])
+
+    print("\nDuplicate rows:")
+    print(details["duplicates"])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
