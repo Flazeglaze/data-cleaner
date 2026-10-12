@@ -62,6 +62,27 @@ Email checks trim whitespace, ignore case, and apply a basic format check. Dupli
 
 The checker expects `customers.csv` in the current working directory and requires the columns `name`, `email`, and `phone`. To check your own data, put a CSV with those columns in the project folder and name it `customers.csv` (back up your data first, as generating sample data overwrites that file).
 
+## Clean and review data
+
+To normalize the data while preserving all records, run:
+
+```bash
+python clean_data.py
+```
+
+The script reads `customers.csv` and writes two new files:
+
+- `customers_cleaned.csv` — all rows, with surrounding whitespace trimmed, blank text converted to missing values, and email addresses lowercased. Other columns are preserved.
+- `customers_review.csv` — only rows needing attention, with a `source_row` number and `quality_issues` field identifying invalid emails, missing phones, and duplicate valid emails.
+
+The input file is never overwritten, and flagged rows are not removed from the cleaned output. Review the flagged records and make judgment calls manually.
+
+You can choose different paths:
+
+```bash
+python clean_data.py --input my_customers.csv --output normalized.csv --review-output review.csv
+```
+
 ## Run tests
 
 ```bash
@@ -73,5 +94,6 @@ python -m unittest discover -s tests -v
 - `make_data.py` — entry point for creating the sample CSV
 - `data_generator.py` — reusable sample-data generation functions
 - `check_data.py` — command-line data-quality report
+- `clean_data.py` — writes normalized data and a separate review file without dropping rows
 - `data_validator.py` — reusable validation and reporting functions
 - `tests/` — unit tests for generation and validation
