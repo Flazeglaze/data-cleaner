@@ -64,7 +64,7 @@ The checker expects `customers.csv` in the current working directory and require
 
 ## Clean and review data
 
-The cleaning script reads a CSV with `name`, `email`, and `phone` columns. It keeps every row, trims whitespace in text columns, converts blank text to missing values, and lowercases email addresses. It does not guess at corrections or delete records.
+The cleaning script reads a CSV with `name`, `email`, and `phone` columns. It trims whitespace in text columns, converts blank text to missing values, lowercases email addresses, validates phone numbers against New Zealand's numbering plan, and formats valid numbers as E.164 (for example, `+64212345678`). It does not guess at corrections.
 
 ### Try it with the sample data
 
@@ -78,10 +78,10 @@ python clean_data.py
 
 The script reads `customers.csv` and writes two files:
 
-- `customers_cleaned.csv` - every input row, with other columns preserved.
-- `customers_review.csv` - rows needing attention, with a `source_row` number and `quality_issues` field identifying invalid emails, missing phones, and duplicate valid emails.
+- `customers_cleaned.csv` - rows with an email present and a valid NZ phone number, with phones formatted as E.164 and other columns preserved. Invalid-email and duplicate-email rows are flagged for review but kept in the cleaned output.
+- `customers_review.csv` - rows needing attention, with a `source_row` number and `quality_issues` field identifying missing or invalid emails, missing or invalid NZ phone numbers, and duplicate valid emails. Rows with missing/invalid email or phone are excluded from the cleaned output but kept here.
 
-The input file is never overwritten. Flagged rows remain in the cleaned output; review `customers_review.csv` and decide how to address those records yourself.
+The input file is never overwritten. Review `customers_review.csv` and decide how to address those records yourself.
 
 ### Clean your own data
 

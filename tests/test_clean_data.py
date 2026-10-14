@@ -4,29 +4,64 @@ from pathlib import Path
 
 import pandas as pd
 
-from clean_data import clean_customers, clean_file
+from clean_data import clean_customers, clean_file, normalize_nz_phone
 
 
 class CleanDataTests(unittest.TestCase):
-    def test_normalizes_values_and_preserves_rows(self):
+    def test_normalizes_values_and_excludes_missing_contact_fields(self):
         source = pd.DataFrame(
             {
-                "name": ["  Alice Smith  ", " Bob Jones "],
-                "email": [" ALICE@EXAMPLE.COM ", "bad-email"],
-                "phone": [" 021 123 4567 ", "   "],
-                "note": ["  customer  ", "  needs review  "],
+                "name": ["  Alice Smith  ", " Bob Jones ", " Carol Jones "],
+                "email": [" ALICE@EXAMPLE.COM ", "bad-email", "   "],
+                "phone": [" 021 234 5678 ", "   ", "021 222 3333"],
+                "note": ["  customer  ", "  missing phone  ", " missing email "],
             }
         )
 
         cleaned, review = clean_customers(source)
 
-        self.assertEqual(len(cleaned), len(source))
+        self.assertEqual(len(cleaned), 1)
         self.assertEqual(cleaned.loc[0, "name"], "Alice Smith")
         self.assertEqual(cleaned.loc[0, "email"], "alice@example.com")
         self.assertEqual(cleaned.loc[0, "note"], "customer")
-        self.assertTrue(pd.isna(cleaned.loc[1, "phone"]))
-        self.assertEqual(review["source_row"].tolist(), [3])
-        self.assertEqual(review["quality_issues"].tolist(), ["invalid_email;missing_phone"])
+        self.assertEqual(review["source_row"].tolist(), [3, 4])
+        self.assertEqual(
+            review["quality_issues"].tolist(),
+            ["invalid_email;missing_phone", "missing_email"],
+        )
+        self.assertTrue(cleaned["email"].notna().all())
+        self.assertTrue(cleaned["phone"].notna().all())
+        self.assertEqual(cleaned.loc[0, "phone"], "+64212345678")
+
+    def test_keeps_only_valid_new_zealand_numbers_and_formats_e164(self):
+        source = pd.DataFrame(
+            {
+                "name": ["Mobile", "Landline", "Invalid", "Overseas"],
+                "email": [
+                    "mobile@example.com",
+                    "landline@example.com",
+                    "invalid@example.com",
+                    "overseas@example.com",
+                ],
+                "phone": [
+                    "021 234 5678",
+                    "09 302 1234",
+                    "12345",
+                    "+1 202 555 0100",
+                ],
+            }
+        )
+
+        cleaned, review = clean_customers(source)
+
+        self.assertEqual(cleaned["phone"].tolist(), ["+64212345678", "+6493021234"])
+        self.assertEqual(review["source_row"].tolist(), [4, 5])
+        self.assertEqual(
+            review["quality_issues"].tolist(),
+            ["invalid_phone", "invalid_phone"],
+        )
+        self.assertIsNone(normalize_nz_phone("12345"))
+        self.assertIsNone(normalize_nz_phone("+1 202 555 0100"))
 
     def test_flags_all_records_sharing_a_valid_email(self):
         source = pd.DataFrame(
@@ -60,7 +95,7 @@ class CleanDataTests(unittest.TestCase):
                 {
                     "name": [" Alice "],
                     "email": [" alice@example.com "],
-                    "phone": ["021 123 4567"],
+                    "phone": ["021 234 5678"],
                 }
             ).to_csv(input_path, index=False)
 

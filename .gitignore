@@ -3,3 +3,5 @@ venv/
 __pycache__/
 *.py[cod]
 customers.csv
+customers_cleaned.csv
+customers_review.csv

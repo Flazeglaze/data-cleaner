@@ -2,6 +2,8 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+import phonenumbers
+from phonenumbers import PhoneNumberFormat
 
 from data_validator import is_valid_email, load_customers, normalise_customers
 
@@ -9,6 +11,24 @@ DEFAULT_INPUT = Path("customers.csv")
 DEFAULT_OUTPUT = Path("customers_cleaned.csv")
 DEFAULT_REVIEW_OUTPUT = Path("customers_review.csv")
 REQUIRED_COLUMNS = {"name", "email", "phone"}
+
+
+def normalize_nz_phone(value: object) -> str | None:
+    if pd.isna(value):
+        return None
+
+    try:
+        number = phonenumbers.parse(str(value), "NZ")
+    except phonenumbers.NumberParseException:
+        return None
+
+    if (
+        number.extension
+        or not phonenumbers.is_valid_number(number)
+        or phonenumbers.region_code_for_number(number) != "NZ"
+    ):
+        return None
+    return phonenumbers.format_number(number, PhoneNumberFormat.E164)
 
 
 def clean_customers(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -24,19 +44,26 @@ def clean_customers(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     cleaned = normalise_customers(cleaned).reset_index(drop=True)
 
     valid_email = cleaned["email"].map(is_valid_email)
+    normalized_phones = cleaned["phone"].map(normalize_nz_phone)
     missing_phone = cleaned["phone"].isna()
+    invalid_phone = cleaned["phone"].notna() & normalized_phones.isna()
+    cleaned.loc[normalized_phones.notna(), "phone"] = normalized_phones[normalized_phones.notna()]
     duplicate_email = (
-        cleaned["email"].notna()
+        valid_email
         & cleaned.duplicated(subset=["email"], keep=False)
     )
 
     issues = []
     for row_index in range(len(cleaned)):
         row_issues = []
-        if not valid_email.iloc[row_index]:
+        if cleaned["email"].isna().iloc[row_index]:
+            row_issues.append("missing_email")
+        elif not valid_email.iloc[row_index]:
             row_issues.append("invalid_email")
         if missing_phone.iloc[row_index]:
             row_issues.append("missing_phone")
+        elif invalid_phone.iloc[row_index]:
+            row_issues.append("invalid_phone")
         if duplicate_email.iloc[row_index]:
             row_issues.append("duplicate_email")
         issues.append(";".join(row_issues))
@@ -46,7 +73,8 @@ def clean_customers(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     review.insert(0, "source_row", review.index + 2)
     review["quality_issues"] = [issues[index] for index in review.index]
 
-    return cleaned, review.reset_index(drop=True)
+    complete_contact = cleaned["email"].notna() & normalized_phones.notna()
+    return cleaned.loc[complete_contact].reset_index(drop=True), review.reset_index(drop=True)
 
 
 def clean_file(
@@ -91,8 +119,7 @@ def main() -> int:
     except (OSError, pd.errors.ParserError, ValueError) as error:
         parser.exit(1, f"Error: {error}\n")
 
-    print(f"Processed {total_rows} rows.")
-    print(f"Cleaned data saved to {args.output}.")
+    print(f"Wrote {total_rows} rows with email and phone values to {args.output}.")
     print(f"{review_rows} rows flagged for review and saved to {args.review_output}.")
     return 0
 
